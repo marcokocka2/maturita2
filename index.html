@@ -1,0 +1,336 @@
+
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maturitný zošit</title>
+
+<style>
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f4f5fb;
+  color: #25263a;
+}
+
+header {
+  background: #6255d9;
+  color: white;
+  padding: 28px 20px;
+  text-align: center;
+}
+
+header h1 {
+  margin: 0 0 8px;
+}
+
+.container {
+  max-width: 1000px;
+  margin: 30px auto;
+  padding: 15px;
+}
+
+.panel {
+  background: white;
+  padding: 22px;
+  border-radius: 15px;
+  margin-bottom: 20px;
+  box-shadow: 0 3px 12px #0000000a;
+}
+
+input, textarea, select {
+  width: 100%;
+  padding: 12px;
+  margin: 8px 0;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 15px;
+}
+
+textarea {
+  min-height: 130px;
+  resize: vertical;
+}
+
+button {
+  background: #6255d9;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 11px 17px;
+  cursor: pointer;
+  margin: 5px 3px;
+}
+
+button:hover {
+  opacity: 0.85;
+}
+
+.delete {
+  background: #e44c5b;
+}
+
+.favorite {
+  background: #e6a52e;
+}
+
+.question {
+  border: 1px solid #eee;
+  padding: 17px;
+  border-radius: 12px;
+  margin-top: 12px;
+}
+
+.question h3 {
+  margin-top: 0;
+}
+
+.question-content {
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+.tags {
+  color: #777;
+  font-size: 13px;
+}
+
+.stats {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.stat {
+  flex: 1;
+  min-width: 120px;
+  background: #eeecff;
+  padding: 15px;
+  border-radius: 10px;
+  text-align: center;
+}
+
+.hidden {
+  display: none;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>📚 Maturitný zošit</h1>
+  <p>Všetky tvoje maturitné otázky na jednom mieste.</p>
+</header>
+
+<div class="container">
+
+  <div class="panel">
+    <h2>📊 Môj pokrok</h2>
+    <div class="stats">
+      <div class="stat">
+        <h2 id="total">0</h2>
+        <span>Otázok</span>
+      </div>
+      <div class="stat">
+        <h2 id="learned">0</h2>
+        <span>Naučených</span>
+      </div>
+      <div class="stat">
+        <h2 id="favorites">0</h2>
+        <span>Obľúbených</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>➕ Pridať maturitnú otázku</h2>
+
+    <input id="subject" placeholder="Predmet (napr. Slovenský jazyk)">
+
+    <input id="title" placeholder="Názov otázky (napr. Realizmus)">
+
+    <textarea id="content"
+      placeholder="Sem vlož svoju maturitnú otázku, poznámky alebo odpoveď..."></textarea>
+
+    <button onclick="addQuestion()">Pridať otázku</button>
+  </div>
+
+  <div class="panel">
+    <h2>🔍 Moje otázky</h2>
+
+    <input id="search"
+      placeholder="Vyhľadať otázku alebo predmet..."
+      oninput="render()">
+
+    <select id="filter" onchange="render()">
+      <option value="all">Všetky otázky</option>
+      <option value="learned">Naučené</option>
+      <option value="unlearned">Nenaučené</option>
+      <option value="favorite">Obľúbené</option>
+    </select>
+
+    <div id="questions"></div>
+  </div>
+
+</div>
+
+<script>
+let questions = JSON.parse(
+  localStorage.getItem("maturita") || "[]"
+);
+
+function save() {
+  localStorage.setItem(
+    "maturita",
+    JSON.stringify(questions)
+  );
+}
+
+function addQuestion() {
+  const subject = document.getElementById("subject").value.trim();
+  const title = document.getElementById("title").value.trim();
+  const content = document.getElementById("content").value.trim();
+
+  if (!subject || !title || !content) {
+    alert("Vyplň predmet, názov aj obsah otázky!");
+    return;
+  }
+
+  questions.push({
+    id: Date.now(),
+    subject,
+    title,
+    content,
+    learned: false,
+    favorite: false
+  });
+
+  save();
+
+  document.getElementById("subject").value = "";
+  document.getElementById("title").value = "";
+  document.getElementById("content").value = "";
+
+  render();
+}
+
+function toggleLearned(id) {
+  const q = questions.find(q => q.id === id);
+  q.learned = !q.learned;
+  save();
+  render();
+}
+
+function toggleFavorite(id) {
+  const q = questions.find(q => q.id === id);
+  q.favorite = !q.favorite;
+  save();
+  render();
+}
+
+function deleteQuestion(id) {
+  if (!confirm("Naozaj chceš vymazať túto otázku?")) return;
+
+  questions = questions.filter(q => q.id !== id);
+  save();
+  render();
+}
+
+function editQuestion(id) {
+  const q = questions.find(q => q.id === id);
+
+  const newTitle = prompt("Názov otázky:", q.title);
+  if (newTitle === null || !newTitle.trim()) return;
+
+  const newContent = prompt("Obsah otázky:", q.content);
+  if (newContent === null) return;
+
+  q.title = newTitle.trim();
+  q.content = newContent;
+  save();
+  render();
+}
+
+function render() {
+  const container = document.getElementById("questions");
+  const search = document.getElementById("search").value.toLowerCase();
+  const filter = document.getElementById("filter").value;
+
+  let filtered = questions.filter(q => {
+    const matches =
+      q.title.toLowerCase().includes(search) ||
+      q.subject.toLowerCase().includes(search) ||
+      q.content.toLowerCase().includes(search);
+
+    if (filter === "learned") return matches && q.learned;
+    if (filter === "unlearned") return matches && !q.learned;
+    if (filter === "favorite") return matches && q.favorite;
+
+    return matches;
+  });
+
+  container.innerHTML = "";
+
+  if (filtered.length === 0) {
+    container.innerHTML = "<p>Zatiaľ tu nie sú žiadne otázky.</p>";
+  }
+
+  filtered.forEach(q => {
+    const card = document.createElement("div");
+    card.className = "question";
+
+    const heading = document.createElement("h3");
+    heading.textContent = q.title;
+
+    const subject = document.createElement("div");
+    subject.className = "tags";
+    subject.textContent = "📖 " + q.subject;
+
+    const content = document.createElement("p");
+    content.className = "question-content";
+    content.textContent = q.content;
+
+    const learned = document.createElement("button");
+    learned.textContent = q.learned ? "✅ Naučené" : "📖 Označiť ako naučené";
+    learned.onclick = () => toggleLearned(q.id);
+
+    const favorite = document.createElement("button");
+    favorite.className = "favorite";
+    favorite.textContent = q.favorite ? "⭐ Obľúbené" : "☆ Obľúbiť";
+    favorite.onclick = () => toggleFavorite(q.id);
+
+    const edit = document.createElement("button");
+    edit.textContent = "✏️ Upraviť";
+    edit.onclick = () => editQuestion(q.id);
+
+    const remove = document.createElement("button");
+    remove.className = "delete";
+    remove.textContent = "🗑️ Vymazať";
+    remove.onclick = () => deleteQuestion(q.id);
+
+    card.append(
+      heading, subject, content,
+      learned, favorite, edit, remove
+    );
+
+    container.appendChild(card);
+  });
+
+  document.getElementById("total").textContent = questions.length;
+  document.getElementById("learned").textContent =
+    questions.filter(q => q.learned).length;
+  document.getElementById("favorites").textContent =
+    questions.filter(q => q.favorite).length;
+}
+
+render();
+</script>
+
+</body>
+</html>
